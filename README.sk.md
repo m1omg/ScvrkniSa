@@ -103,8 +103,8 @@ Shrink! sa potom objaví v ponuke aplikácií.
 
 Stiahnite APK v telefóne a otvorte ho. Android vás požiada o povolenie
 inštalovať aplikácie z prehliadača alebo správcu súborov; povoľte to raz.
-Výsledky sa ukladajú do **Movies/Shrink** (videá) a **Music/Shrink** (zvuk),
-alebo kamkoľvek, čo si vyberiete v nastaveniach.
+Výsledky sa ukladajú do **Movies/Shrink** (videá) a **Music/Shrink** (zvuk);
+v nastaveniach môžete zapnúť, aby sa aplikácia zakaždým spýtala, kam uložiť.
 
 ## Ako používať Shrink!
 

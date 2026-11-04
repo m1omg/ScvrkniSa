@@ -99,8 +99,8 @@ Shrink! then appears in your applications menu.
 
 Download the APK on the phone and open it. Android asks you to allow installing
 apps from your browser or file manager; allow it once. Results are saved in
-**Movies/Shrink** (videos) and **Music/Shrink** (audio), or wherever you choose
-in the settings.
+**Movies/Shrink** (videos) and **Music/Shrink** (audio); in the settings you can
+switch to choosing the place every time.
 
 ## Using Shrink!
 
