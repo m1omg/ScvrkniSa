@@ -74,6 +74,7 @@ android {
         versionCode = 1
         versionName = project.version.toString()
         vectorDrawables.useSupportLibrary = true
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -148,4 +149,10 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
     implementation(libs.jump3r)
+
+    // Instrumented tests (run on an emulator in CI: ./gradlew :android:connectedDebugAndroidTest)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.test.junit)
 }
