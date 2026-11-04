@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark glass theme: deep night sky with glowing colour orbs. -->
+    <color name="bg_top">#FF090B1F</color>
+    <color name="bg_bottom">#FF170D33</color>
+    <color name="orb_1">#B37C5CFF</color>
+    <color name="orb_2">#8C1EB8DC</color>
+    <color name="orb_3">#80E5509F</color>
+    <color name="orb_4">#803B6CF6</color>
+    <color name="glass_fill">#1FFFFFFF</color>
+    <color name="glass_fill_strong">#33FFFFFF</color>
+    <color name="glass_stroke_light">#59FFFFFF</color>
+    <color name="glass_stroke_dark">#14FFFFFF</color>
+    <color name="glass_highlight">#26FFFFFF</color>
+    <color name="text_primary">#FFF5F6FF</color>
+    <color name="text_secondary">#B3F5F6FF</color>
+    <color name="text_tertiary">#80F5F6FF</color>
+    <color name="accent">#FF8B74FF</color>
+    <color name="accent_2">#FF22D3EE</color>
+    <color name="accent_soft">#408B74FF</color>
+    <color name="success">#FF4ADE80</color>
+    <color name="warning">#FFFBBF24</color>
+    <color name="error">#FFF87171</color>
+    <color name="scrim">#99000000</color>
+    <color name="video_bg">#FF05060C</color>
+</resources>

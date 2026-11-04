@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light glass theme: pastel background, milky glass. -->
+    <color name="bg_top">#FFEEF0FF</color>
+    <color name="bg_bottom">#FFFDF1F8</color>
+    <color name="orb_1">#887C5CFF</color>
+    <color name="orb_2">#7722C7F0</color>
+    <color name="orb_3">#66F472B6</color>
+    <color name="orb_4">#553B82F6</color>
+    <color name="glass_fill">#99FFFFFF</color>
+    <color name="glass_fill_strong">#CCFFFFFF</color>
+    <color name="glass_stroke_light">#F2FFFFFF</color>
+    <color name="glass_stroke_dark">#40FFFFFF</color>
+    <color name="glass_highlight">#66FFFFFF</color>
+    <color name="text_primary">#FF15172E</color>
+    <color name="text_secondary">#A615172E</color>
+    <color name="text_tertiary">#7315172E</color>
+    <color name="accent">#FF6D4DFF</color>
+    <color name="accent_2">#FF14B8E6</color>
+    <color name="accent_soft">#336D4DFF</color>
+    <color name="success">#FF0F9D58</color>
+    <color name="warning">#FFC27803</color>
+    <color name="error">#FFD93A3A</color>
+    <color name="scrim">#66000000</color>
+    <color name="video_bg">#FF101118</color>
+    <color name="launcher_bg_start">#FF7B5CFF</color>
+    <color name="launcher_bg_end">#FF22C7F0</color>
+</resources>
