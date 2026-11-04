@@ -233,4 +233,40 @@ public final class Formats {
             return Double.NaN;
         }
     }
+
+    /**
+     * Parses a time typed by the user: {@code 75}, {@code 1:15}, {@code 1:15.5},
+     * {@code 0:01:15,5}. Returns {@code NaN} when the text is not a valid time.
+     */
+    public static double parseDuration(String text) {
+        if (text == null) {
+            return Double.NaN;
+        }
+        String t = text.trim().replace(',', '.');
+        if (t.isEmpty()) {
+            return Double.NaN;
+        }
+        String[] parts = t.split(":", -1);
+        if (parts.length > 3) {
+            return Double.NaN;
+        }
+        double total = 0;
+        for (int i = 0; i < parts.length; i++) {
+            String p = parts[i].trim();
+            if (p.isEmpty()) {
+                return Double.NaN;
+            }
+            double value;
+            try {
+                value = Double.parseDouble(p);
+            } catch (NumberFormatException e) {
+                return Double.NaN;
+            }
+            if (value < 0 || (i > 0 && value >= 60) || (i < parts.length - 1 && value != Math.floor(value))) {
+                return Double.NaN;
+            }
+            total = total * 60 + value;
+        }
+        return total;
+    }
 }

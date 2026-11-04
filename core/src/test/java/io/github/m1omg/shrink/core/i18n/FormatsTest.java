@@ -61,4 +61,15 @@ class FormatsTest {
         assertTrue(Double.isNaN(Formats.parseDecimal("abc")));
         assertTrue(Double.isNaN(Formats.parseDecimal("")));
     }
+
+    @Test
+    void parsesTypedTimes() {
+        assertEquals(75.0, Formats.parseDuration("75"), 1e-9);
+        assertEquals(75.0, Formats.parseDuration("1:15"), 1e-9);
+        assertEquals(75.5, Formats.parseDuration("1:15,5"), 1e-9);
+        assertEquals(3675.5, Formats.parseDuration("1:01:15.5"), 1e-9);
+        assertTrue(Double.isNaN(Formats.parseDuration("1:75")));
+        assertTrue(Double.isNaN(Formats.parseDuration("a:10")));
+        assertTrue(Double.isNaN(Formats.parseDuration("1.5:10")));
+    }
 }
