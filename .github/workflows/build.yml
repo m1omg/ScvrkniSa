@@ -142,6 +142,10 @@ jobs:
       - name: Build packages
         shell: bash
         run: ./gradlew --no-daemon -Pshrink.android=false -Pshrink.platform=${{ matrix.platform }} :desktop:jpackage
+      - name: Check that the Mac app runs on macOS 12 Monterey
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash tools/check-macos-version.sh desktop/build/jpackage/out/*.dmg 12.0
       - name: Collect packages
         shell: bash
         run: |
@@ -151,6 +155,7 @@ jobs:
           tag="${GITHUB_REF_NAME//\//-}"
           case "${{ matrix.platform }}" in
             linux-*)
+              dpkg-deb -f *.deb Depends
               cp *.deb "../../../../dist/Shrink-$tag-linux-amd64.deb"
               cp *.rpm "../../../../dist/Shrink-$tag-linux-x86_64.rpm"
               tar -czf "../../../../dist/Shrink-$tag-linux-x86_64.tar.gz" Shrink
