@@ -135,6 +135,8 @@ class MatroskaWriterTest {
             audio.add(new AccessUnit(p, t, true));
             t += opusDurationUs(p);
         }
+        // Some encoders end the stream with an empty packet; it must not reach the file.
+        audio.add(new AccessUnit(new byte[0], t, true));
         Path out = dir.resolve("out.webm");
         try (MatroskaWriter w = new MatroskaWriter(out, true, "Shrink! test")) {
             int v = w.addVideoTrack(MatroskaWriter.CODEC_VP9, null, 320, 240, 25.0);
@@ -148,7 +150,17 @@ class MatroskaWriterTest {
         assertEquals("vp9", Json.getString(Json.asObject(streams.get(0)), "codec_name", ""));
         assertEquals("opus", Json.getString(Json.asObject(streams.get(1)), "codec_name", ""));
         assertEquals(2.0, Json.getDouble(Json.getObject(probe, "format"), "duration", 0), 0.15);
-        assertDecodesCleanly(out);
+        try {
+            assertDecodesCleanly(out);
+        } catch (AssertionError e) {
+            // Helps tell an encoder or FFmpeg version quirk from a writer bug.
+            StringBuilder sizes = new StringBuilder();
+            for (int i = 2; i < packets.size(); i++) {
+                byte[] p = packets.get(i);
+                sizes.append(p.length).append(p.length > 0 ? String.format("/%02x ", p[0] & 0xFF) : " ");
+            }
+            throw new AssertionError(e.getMessage() + "\nOpus packets (size/TOC): " + sizes, e);
+        }
     }
 
     @Test

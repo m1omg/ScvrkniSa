@@ -242,6 +242,11 @@ public final class MatroskaWriter implements Closeable {
             payload = new byte[length];
             System.arraycopy(data, offset, payload, 0, length);
         }
+        if (payload.length == 0) {
+            // An empty frame is not valid for any supported codec, and players reject
+            // it. Encoders and muxers sometimes emit one to mark the end of a stream.
+            return;
+        }
         track.queue.add(new Sample(payload, timestampUs, keyframe || !track.video));
         if (track.lastTimestampUs != Long.MIN_VALUE && timestampUs > track.lastTimestampUs) {
             long delta = timestampUs - track.lastTimestampUs;
