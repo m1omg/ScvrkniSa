@@ -25,3 +25,10 @@ tasks.test {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
+
+// AppInfo.version() reads the version from this manifest.
+tasks.jar {
+    manifest {
+        attributes("Implementation-Title" to "Shrink! core", "Implementation-Version" to project.version)
+    }
+}
