@@ -73,8 +73,9 @@ public final class DropZone extends JPanel {
                 + " hoverBackground: darken($Component.accentColor,6%);"
                 + " pressedBackground: darken($Component.accentColor,12%);"
                 + " foreground: #ffffff; focusedForeground: #ffffff; hoverForeground: #ffffff;"
-                + " pressedForeground: #ffffff; disabledText: lighten($Component.accentColor,25%);"
-                + " disabledBackground: lighten($Component.accentColor,30%);"
+                // Translucent when disabled, so it looks dimmed on light and dark themes alike.
+                + " pressedForeground: #ffffff; disabledText: fade(#ffffff,72%);"
+                + " disabledBackground: fade($Component.accentColor,38%);"
                 + " borderWidth: 0; focusWidth: 2; arc: 10; margin: 6,16,6,16; font: bold");
     }
 
