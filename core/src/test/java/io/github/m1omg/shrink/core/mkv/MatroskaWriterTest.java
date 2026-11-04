@@ -164,6 +164,16 @@ class MatroskaWriterTest {
     }
 
     @Test
+    void ignoresOnlyTheKnownFfmpeg8OpusFlushMessage() {
+        String flush = "[opus @ 0x5f1b846c2140] Error parsing Opus packet header.";
+        assertEquals("", withoutKnownFfmpegNoise(flush));
+        assertEquals(flush + "\n" + flush, withoutKnownFfmpegNoise(flush + "\n" + flush));
+        assertEquals("[vp9 @ 0x1] Corrupt frame", withoutKnownFfmpegNoise("[vp9 @ 0x1] Corrupt frame\n" + flush));
+        String damaged = flush + "\n[opus @ 0x1] Invalid data found";
+        assertEquals(damaged, withoutKnownFfmpegNoise(damaged));
+    }
+
+    @Test
     void annexBConversion() {
         byte[] annexB = {0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 0, 1, 0x65, 4, 5, 6};
         byte[] avcc = NalUnits.toLengthPrefixed(annexB, 0, annexB.length);
@@ -332,6 +342,22 @@ class MatroskaWriterTest {
     private static void assertDecodesCleanly(Path file) throws Exception {
         byte[] log = run(ffmpeg, "-v", "error", "-i", file.toString(), "-f", "null", "-");
         String text = new String(log, StandardCharsets.UTF_8).trim();
-        assertTrue(text.isEmpty(), "ffmpeg reported problems:\n" + text);
+        assertTrue(withoutKnownFfmpegNoise(text).isEmpty(), "ffmpeg reported problems:\n" + text);
+    }
+
+    /**
+     * FFmpeg 8.0 runs its Opus parser on the empty "flush" packet at the end of
+     * every Matroska/WebM file and logs "Error parsing Opus packet header." once,
+     * even for files written by FFmpeg itself (fixed in later FFmpeg versions).
+     * A single such line at the end is that bug; more of them would be real damage.
+     */
+    static String withoutKnownFfmpegNoise(String log) {
+        String[] lines = log.split("\\R");
+        String opusFlush = "Error parsing Opus packet header.";
+        long count = Arrays.stream(lines).filter(l -> l.endsWith(opusFlush)).count();
+        if (count != 1 || !lines[lines.length - 1].endsWith(opusFlush)) {
+            return log;
+        }
+        return String.join("\n", Arrays.copyOf(lines, lines.length - 1)).trim();
     }
 }
