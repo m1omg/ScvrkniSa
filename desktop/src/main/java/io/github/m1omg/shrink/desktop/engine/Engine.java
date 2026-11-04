@@ -103,10 +103,10 @@ public final class Engine {
             try {
                 runPasses(commands, job, work, listener, token, started, true);
             } catch (EngineException e) {
-                if (!commands.hardware() || (token != null && token.isCancelled())) {
+                if (!commands.usesHardware() || (token != null && token.isCancelled())) {
                     throw e;
                 }
-                // The hardware encoder is listed but did not work (e.g. no GPU): retry in software.
+                // Hardware encoding or decoding failed for this file: retry in software.
                 if (listener != null) {
                     listener.fallingBackToSoftware();
                 }
@@ -143,7 +143,7 @@ public final class Engine {
             try {
                 runPasses(commands, previewJob, work, listener, token, started, false);
             } catch (EngineException e) {
-                if (!commands.hardware() || (token != null && token.isCancelled())) {
+                if (!commands.usesHardware() || (token != null && token.isCancelled())) {
                     throw e;
                 }
                 commands = builder.build(previewJob, input, target, false);

@@ -15,6 +15,7 @@ import io.github.m1omg.shrink.core.plan.CompressionRequest;
 import io.github.m1omg.shrink.core.plan.Dimensions;
 import io.github.m1omg.shrink.core.plan.JobPlanner;
 import io.github.m1omg.shrink.core.plan.Plan;
+import io.github.m1omg.shrink.core.plan.PlanText;
 import io.github.m1omg.shrink.core.plan.QualityModel;
 import io.github.m1omg.shrink.desktop.AppContext;
 import io.github.m1omg.shrink.desktop.engine.Engine;
@@ -200,7 +201,8 @@ public final class CompressPanel extends ToolPanel {
                 .frameRate(frameRate)
                 .audio(audio)
                 .audioBitrate(audioBitrate)
-                .hardware(hardware);
+                .hardware(hardware != null ? hardware
+                        : codec != null ? app.settings().isHardwareEncoding() && app.hasHardwareEncoder(codec) : null);
         if (preset == selected) {
             b.videoBitrate(videoBitrate).crf(crf);
         }

@@ -1,4 +1,4 @@
-package io.github.m1omg.shrink.desktop.ui.tools;
+package io.github.m1omg.shrink.core.plan;
 
 import io.github.m1omg.shrink.core.i18n.Formats;
 import io.github.m1omg.shrink.core.i18n.I18n;
@@ -7,9 +7,6 @@ import io.github.m1omg.shrink.core.model.Job;
 import io.github.m1omg.shrink.core.model.RateControl;
 import io.github.m1omg.shrink.core.model.VideoOutput;
 import io.github.m1omg.shrink.core.model.VideoStream;
-import io.github.m1omg.shrink.core.plan.Plan;
-import io.github.m1omg.shrink.core.plan.PlanWarning;
-import io.github.m1omg.shrink.core.plan.SizeEstimator;
 
 import java.util.ArrayList;
 import java.util.List;

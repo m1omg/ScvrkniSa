@@ -5,6 +5,7 @@ import io.github.m1omg.shrink.core.model.Container;
 import io.github.m1omg.shrink.core.model.MediaInfo;
 import io.github.m1omg.shrink.core.plan.JobPlanner;
 import io.github.m1omg.shrink.core.plan.Plan;
+import io.github.m1omg.shrink.core.plan.PlanText;
 import io.github.m1omg.shrink.desktop.AppContext;
 import io.github.m1omg.shrink.desktop.ui.components.Banner;
 import io.github.m1omg.shrink.desktop.ui.components.OptionCard;

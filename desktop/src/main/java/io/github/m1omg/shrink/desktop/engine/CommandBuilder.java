@@ -40,8 +40,17 @@ public final class CommandBuilder {
         }
     }
 
-    /** All passes of a job plus the encoder that was chosen. */
-    public record Commands(List<Pass> passes, String videoEncoder, boolean hardware) {
+    /**
+     * All passes of a job plus the encoder that was chosen.
+     *
+     * @param hardware       a hardware encoder is used
+     * @param hardwareDecode the video is decoded on the graphics chip
+     */
+    public record Commands(List<Pass> passes, String videoEncoder, boolean hardware, boolean hardwareDecode) {
+        /** Whether any hardware acceleration is involved (so a software retry makes sense). */
+        public boolean usesHardware() {
+            return hardware || hardwareDecode;
+        }
     }
 
     static final String PASS_LOG = "shrink-pass";
@@ -77,15 +86,17 @@ public final class CommandBuilder {
         }
         boolean twoPass = encodeVideo && !hardware && video.rateControl() == RateControl.TWO_PASS
                 && supportsTwoPass(encoder);
+        // Decoding on the graphics chip helps most with big HEVC/H.264 sources (macOS VideoToolbox).
+        String hwaccel = encodeVideo && allowHardware && video.hardware() ? tools.hardwareDecoder() : null;
 
         List<Pass> passes = new ArrayList<>();
         if (twoPass) {
-            passes.add(new Pass(firstPass(job, input, encoder), 0.35, 1, 2));
-            passes.add(new Pass(fullCommand(job, input, output, encoder, hardware, 2), 0.65, 2, 2));
+            passes.add(new Pass(firstPass(job, input, encoder, hwaccel), 0.35, 1, 2));
+            passes.add(new Pass(fullCommand(job, input, output, encoder, hardware, 2, hwaccel), 0.65, 2, 2));
         } else {
-            passes.add(new Pass(fullCommand(job, input, output, encoder, hardware, 0), 1.0, 1, 1));
+            passes.add(new Pass(fullCommand(job, input, output, encoder, hardware, 0, hwaccel), 1.0, 1, 1));
         }
-        return new Commands(passes, encoder, hardware);
+        return new Commands(passes, encoder, hardware, hwaccel != null);
     }
 
     private static boolean supportsTwoPass(String encoder) {
@@ -98,7 +109,11 @@ public final class CommandBuilder {
                 "-loglevel", "error", "-progress", "pipe:1", "-nostats"));
     }
 
-    private static void inputOptions(List<String> cmd, Job job, Path input) {
+    private static void inputOptions(List<String> cmd, Job job, Path input, String hwaccel) {
+        if (hwaccel != null) {
+            cmd.add("-hwaccel");
+            cmd.add(hwaccel);
+        }
         if (job.trim() != null && job.trim().start() > 0) {
             cmd.add("-ss");
             cmd.add(seconds(job.trim().start()));
@@ -117,9 +132,9 @@ public final class CommandBuilder {
     }
 
     /** Analysis pass of a two-pass encode: video only, written nowhere. */
-    private List<String> firstPass(Job job, Path input, String encoder) {
+    private List<String> firstPass(Job job, Path input, String encoder, String hwaccel) {
         List<String> cmd = start();
-        inputOptions(cmd, job, input);
+        inputOptions(cmd, job, input, hwaccel);
         cmd.add("-map");
         cmd.add("0:" + job.source().video().index());
         videoOptions(cmd, job, encoder, false, 1);
@@ -127,11 +142,12 @@ public final class CommandBuilder {
         return cmd;
     }
 
-    private List<String> fullCommand(Job job, Path input, Path output, String encoder, boolean hardware, int pass) {
+    private List<String> fullCommand(Job job, Path input, Path output, String encoder, boolean hardware, int pass,
+                                     String hwaccel) {
         MediaInfo src = job.source();
         VideoStream v = src.video();
         List<String> cmd = start();
-        inputOptions(cmd, job, input);
+        inputOptions(cmd, job, input, hwaccel);
 
         // Which streams go into the output.
         boolean withVideo = !job.isAudioOnly() && !job.video().isNone() && v != null;
@@ -358,7 +374,7 @@ public final class CommandBuilder {
                 break;
             case "h264_videotoolbox":
             case "hevc_videotoolbox":
-                cmd.addAll(Arrays.asList("-b:v", b, "-allow_sw", "1"));
+                cmd.addAll(Arrays.asList("-b:v", b));
                 if (encoder.startsWith("hevc")) {
                     cmd.addAll(Arrays.asList("-profile:v", tenBit ? "main10" : "main"));
                     if (isMp4Family(job)) {

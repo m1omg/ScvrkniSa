@@ -54,9 +54,23 @@ public final class AppContext {
         return history;
     }
 
-    /** A planner using the current encoding settings. */
+    /**
+     * A planner using the current encoding settings. Hardware acceleration is
+     * used when it is enabled (the default) and a working hardware encoder for
+     * the default codec was found; otherwise software encoding (with its exact
+     * two-pass sizes) is planned.
+     */
     public JobPlanner planner() {
-        return new JobPlanner(settings.toEncodingDefaults());
+        io.github.m1omg.shrink.core.plan.EncodingDefaults d = settings.toEncodingDefaults();
+        boolean hardware = settings.isHardwareEncoding() && hasHardwareEncoder(d.codec());
+        return new JobPlanner(new io.github.m1omg.shrink.core.plan.EncodingDefaults(d.codec(), d.container(),
+                d.speed(), d.twoPass(), hardware, d.keepMetadata()));
+    }
+
+    /** Whether this computer has a working hardware encoder for the codec. */
+    public boolean hasHardwareEncoder(io.github.m1omg.shrink.core.model.VideoCodec codec) {
+        Engine e = engine;
+        return e != null && e.tools().hardwareEncoder(codec) != null;
     }
 
     public void saveSettings() {

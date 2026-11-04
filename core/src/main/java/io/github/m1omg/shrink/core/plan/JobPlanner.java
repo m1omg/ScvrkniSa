@@ -35,6 +35,8 @@ public final class JobPlanner {
 
     /** Aim this much below a requested target size, encoders overshoot a little. */
     static final double TARGET_SAFETY = 0.03;
+    /** Hardware encoders work in one pass and miss the target by more. */
+    static final double TARGET_SAFETY_HARDWARE = 0.06;
     /** Below this video bitrate even tiny videos fall apart. */
     static final long MIN_VIDEO_BITRATE = 30_000;
     static final long MIN_AUDIO_BITRATE = 32_000;
@@ -126,14 +128,16 @@ public final class JobPlanner {
 
         if (preset == CompressionPreset.TARGET_SIZE) {
             long target = req.targetBytes() > 0 ? req.targetBytes() : suggestedTargetBytes(src);
-            double totalBps = budgetBitrate(target, container, srcFps, src.hasAudio(), duration);
+            double safety = hardware ? TARGET_SAFETY_HARDWARE : TARGET_SAFETY;
+            double totalBps = budgetBitrate(target, container, srcFps, src.hasAudio(), duration, safety);
 
             audio = planAudio(src, container, preset, totalBps, req.audio(), req.audioBitrate());
             double audioBps = audioBitrateOf(src, audio);
             double videoBps = totalBps - audioBps;
 
             long minAudio = audio.isNone() ? 0 : Math.min(MIN_AUDIO_BITRATE, Math.round(audioBps));
-            minimumBytes = sizeForBitrate(MIN_VIDEO_BITRATE + minAudio, container, srcFps, !audio.isNone(), duration);
+            minimumBytes = sizeForBitrate(MIN_VIDEO_BITRATE + minAudio, container, srcFps, !audio.isNone(), duration,
+                    safety);
             if (videoBps < MIN_VIDEO_BITRATE) {
                 feasible = false;
                 warnings.add(PlanWarning.TARGET_TOO_SMALL);
@@ -281,18 +285,20 @@ public final class JobPlanner {
     }
 
     /** Usable bits per second for audio + video when the file must fit {@code targetBytes}. */
-    static double budgetBitrate(long targetBytes, Container container, double fps, boolean audio, double duration) {
+    static double budgetBitrate(long targetBytes, Container container, double fps, boolean audio, double duration,
+                                double safety) {
         if (duration <= 0) {
             return 0;
         }
-        double usable = targetBytes * (1.0 - TARGET_SAFETY) - SizeEstimator.overheadBytes(container, fps, audio,
+        double usable = targetBytes * (1.0 - safety) - SizeEstimator.overheadBytes(container, fps, audio,
                 duration);
         return Math.max(0, usable * 8.0 / duration);
     }
 
-    private static long sizeForBitrate(double bps, Container container, double fps, boolean audio, double duration) {
+    private static long sizeForBitrate(double bps, Container container, double fps, boolean audio, double duration,
+                                       double safety) {
         double bytes = bps * duration / 8.0 + SizeEstimator.overheadBytes(container, fps, audio, duration);
-        return (long) Math.ceil(bytes / (1.0 - TARGET_SAFETY));
+        return (long) Math.ceil(bytes / (1.0 - safety));
     }
 
     private static Dimensions chooseResolution(int srcW, int srcH, double fps, double videoBps, VideoCodec codec,

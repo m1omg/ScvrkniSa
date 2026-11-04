@@ -28,7 +28,7 @@ import io.github.m1omg.shrink.desktop.ui.tools.ExtractAudioPanel;
 import io.github.m1omg.shrink.desktop.ui.tools.FrameRatePanel;
 import io.github.m1omg.shrink.desktop.ui.tools.InfoPanel;
 import io.github.m1omg.shrink.desktop.ui.tools.MutePanel;
-import io.github.m1omg.shrink.desktop.ui.tools.PlanText;
+import io.github.m1omg.shrink.core.plan.PlanText;
 import io.github.m1omg.shrink.desktop.ui.tools.ResolutionPanel;
 import io.github.m1omg.shrink.desktop.ui.tools.RotatePanel;
 import io.github.m1omg.shrink.desktop.ui.tools.Tool;

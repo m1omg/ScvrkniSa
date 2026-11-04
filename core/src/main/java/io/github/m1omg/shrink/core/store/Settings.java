@@ -35,7 +35,7 @@ public final class Settings {
     private Container container = Container.MP4;
     private EncoderSpeed speed = EncoderSpeed.BALANCED;
     private boolean twoPass = true;
-    private boolean hardwareEncoding;
+    private boolean hardwareEncoding = true;
     private boolean keepMetadata = true;
     private boolean showAdvanced;
     private boolean revealWhenDone;
@@ -128,7 +128,7 @@ public final class Settings {
         setContainer(Container.fromId(Json.getString(m, "container", null), Container.MP4));
         setSpeed(EncoderSpeed.fromId(Json.getString(m, "speed", null), EncoderSpeed.BALANCED));
         setTwoPass(Json.getBoolean(m, "twoPass", true));
-        setHardwareEncoding(Json.getBoolean(m, "hardwareEncoding", false));
+        setHardwareEncoding(Json.getBoolean(m, "hardwareEncoding", true));
         setKeepMetadata(Json.getBoolean(m, "keepMetadata", true));
         setShowAdvanced(Json.getBoolean(m, "showAdvanced", false));
         setRevealWhenDone(Json.getBoolean(m, "revealWhenDone", false));

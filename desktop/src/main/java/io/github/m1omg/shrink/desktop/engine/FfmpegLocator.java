@@ -216,12 +216,54 @@ public final class FfmpegLocator {
             String version = m.find() ? m.group(1) : "?";
             Set<String> encoders = parseCodecList(runAndRead(ffmpeg, "-hide_banner", "-encoders"));
             Set<String> filters = parseFilterList(runAndRead(ffmpeg, "-hide_banner", "-filters"));
-            return new FfmpegTools(ffmpeg, ffprobe, source, version, encoders, filters);
+            Set<String> hardware = probeHardwareEncoders(ffmpeg, encoders);
+            String hwDecoder = null;
+            if (Platform.isMac() && runAndRead(ffmpeg, "-hide_banner", "-hwaccels").stream()
+                    .anyMatch(l -> l.trim().equals("videotoolbox"))) {
+                hwDecoder = "videotoolbox";
+            }
+            return new FfmpegTools(ffmpeg, ffprobe, source, version, encoders, filters, hardware, hwDecoder);
         } catch (IOException e) {
             tried.add(source.name().toLowerCase(Locale.ROOT) + ": " + ffmpeg + " does not run (" + e.getMessage()
                     + ")");
             throw notFound(tried);
         }
+    }
+
+    /**
+     * Tries each hardware encoder this FFmpeg knows with a tiny test encode: an
+     * encoder can be listed even when the graphics hardware for it is missing.
+     */
+    static Set<String> probeHardwareEncoders(Path ffmpeg, Set<String> encoders) {
+        Set<String> working = new HashSet<>();
+        for (io.github.m1omg.shrink.core.model.VideoCodec codec : io.github.m1omg.shrink.core.model.VideoCodec.values()) {
+            for (String name : FfmpegTools.hardwareCandidates(codec)) {
+                if (!encoders.contains(name)) {
+                    continue;
+                }
+                List<String> cmd = new ArrayList<>(java.util.Arrays.asList(ffmpeg.toString(), "-hide_banner",
+                        "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=640x360:r=30:d=0.4", "-c:v", name));
+                if (name.endsWith("_videotoolbox")) {
+                    cmd.addAll(java.util.Arrays.asList("-allow_sw", "0"));
+                }
+                cmd.addAll(java.util.Arrays.asList("-pix_fmt", "nv12", "-f", "null", "-"));
+                try {
+                    Process p = new ProcessBuilder(cmd).redirectErrorStream(true)
+                            .redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                    if (p.waitFor(15, TimeUnit.SECONDS) && p.exitValue() == 0) {
+                        working.add(name);
+                        break; // the first working encoder per codec is enough
+                    }
+                    p.destroyForcibly();
+                } catch (IOException e) {
+                    // not usable
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return working;
+                }
+            }
+        }
+        return working;
     }
 
     /** Lines like {@code " V....D libx264  libx264 H.264 ..."} → {@code libx264}. */

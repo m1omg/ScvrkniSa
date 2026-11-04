@@ -1,7 +1,6 @@
 package io.github.m1omg.shrink.desktop.engine;
 
 import io.github.m1omg.shrink.core.model.VideoCodec;
-import io.github.m1omg.shrink.desktop.util.Platform;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -22,14 +21,19 @@ public final class FfmpegTools {
     private final String version;
     private final Set<String> encoders;
     private final Set<String> filters;
+    private final Set<String> workingHardware;
+    private final String hardwareDecoder;
 
-    FfmpegTools(Path ffmpeg, Path ffprobe, Source source, String version, Set<String> encoders, Set<String> filters) {
+    FfmpegTools(Path ffmpeg, Path ffprobe, Source source, String version, Set<String> encoders, Set<String> filters,
+                Set<String> workingHardware, String hardwareDecoder) {
         this.ffmpeg = ffmpeg;
         this.ffprobe = ffprobe;
         this.source = source;
         this.version = version;
         this.encoders = Collections.unmodifiableSet(encoders);
         this.filters = Collections.unmodifiableSet(filters);
+        this.workingHardware = Collections.unmodifiableSet(workingHardware);
+        this.hardwareDecoder = hardwareDecoder;
     }
 
     public Path ffmpeg() {
@@ -82,37 +86,49 @@ public final class FfmpegTools {
     }
 
     /**
-     * Name of a hardware encoder for a codec on this computer, or {@code null}.
-     * Being listed does not guarantee that the hardware exists; the engine falls
-     * back to software encoding if the hardware encoder fails to start.
+     * Name of a hardware encoder for a codec that was tested and works on this
+     * computer (VideoToolbox on Macs, NVENC or Quick Sync elsewhere), or {@code null}.
      */
     public String hardwareEncoder(VideoCodec codec) {
-        String suffix;
-        switch (codec) {
-            case H264:
-                suffix = "h264";
-                break;
-            case H265:
-                suffix = "hevc";
-                break;
-            default:
-                return null;
-        }
-        if (Platform.isMac()) {
-            String name = suffix + "_videotoolbox";
-            return hasEncoder(name) ? name : null;
-        }
-        String nvenc = suffix + "_nvenc";
-        if (hasEncoder(nvenc)) {
-            return nvenc;
-        }
-        if (Platform.isWindows()) {
-            String qsv = suffix + "_qsv";
-            if (hasEncoder(qsv)) {
-                return qsv;
+        for (String name : hardwareCandidates(codec)) {
+            if (workingHardware.contains(name)) {
+                return name;
             }
         }
         return null;
+    }
+
+    /** Hardware encoders worth trying for a codec on this operating system, best first. */
+    static java.util.List<String> hardwareCandidates(VideoCodec codec) {
+        String prefix;
+        switch (codec) {
+            case H264:
+                prefix = "h264";
+                break;
+            case H265:
+                prefix = "hevc";
+                break;
+            case AV1:
+                prefix = "av1";
+                break;
+            default:
+                return java.util.Collections.emptyList();
+        }
+        // Only encoders that passed the start-up test are used, so the list can
+        // name every vendor: VideoToolbox (Mac), NVENC (NVIDIA), Quick Sync (Intel), AMF (AMD).
+        java.util.List<String> names = new java.util.ArrayList<>();
+        if (codec != VideoCodec.AV1) {
+            names.add(prefix + "_videotoolbox");
+        }
+        names.add(prefix + "_nvenc");
+        names.add(prefix + "_qsv");
+        names.add(prefix + "_amf");
+        return names;
+    }
+
+    /** The {@code -hwaccel} method for decoding on the graphics chip, or {@code null}. */
+    public String hardwareDecoder() {
+        return hardwareDecoder;
     }
 
     /** Whether any codec can be encoded at all (in software). */
