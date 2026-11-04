@@ -25,6 +25,11 @@ val shrinkPlatform: String = providers.gradleProperty("shrink.platform").getOrEl
 val bundleFfmpeg: Boolean = providers.gradleProperty("shrink.bundleFfmpeg").getOrElse("true").toBoolean()
 val ffmpegVersion: String = libs.versions.bytedecoFfmpeg.get()
 
+// Tools used only while building (the icon renderer); not part of the app.
+val packagingTools: SourceSet = sourceSets.create("packagingTools") {
+    java.srcDir("src/packaging/java")
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(libs.flatlaf)
@@ -34,6 +39,7 @@ dependencies {
         // Only the native programs are needed, not the JNI bindings.
         runtimeOnly("org.bytedeco:ffmpeg:$ffmpegVersion:$shrinkPlatform-gpl") { isTransitive = false }
     }
+    "packagingToolsImplementation"(libs.jsvg)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
@@ -46,16 +52,20 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Xlint:-options", "-Xlint:-this-escape"))
 }
 
+val os: OperatingSystem = OperatingSystem.current()
+val jvmFlags = buildList {
+    add("-Dapple.awt.application.appearance=system")
+    add("-Dapple.awt.application.name=Shrink!")
+    if (os.isLinux) {
+        // Lets Main set the X11 window class, so the dock shows the right icon.
+        add("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED")
+    }
+}
+
 application {
     mainClass = "io.github.m1omg.shrink.desktop.Main"
     applicationName = "shrink"
-    applicationDefaultJvmArgs = listOf(
-        "-Dapple.awt.application.appearance=system",
-        "-Dapple.awt.application.name=Shrink!",
-        "-Dsun.java2d.metal=true",
-        "--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED",
-        "--enable-native-access=ALL-UNNAMED",
-    )
+    applicationDefaultJvmArgs = jvmFlags
 }
 
 tasks.jar {
@@ -82,5 +92,117 @@ tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }
 
-extra["shrinkPlatform"] = shrinkPlatform
-apply(from = "packaging.gradle.kts")
+// ---------------------------------------------------------------- packaging
+//
+// `./gradlew :desktop:jpackage` builds the app with its own Java runtime:
+//   macOS   -> build/jpackage/out/Shrink!-<version>.dmg
+//   Linux   -> .deb, .rpm (when the tools are installed) and a portable folder
+//   Windows -> a portable folder (zip it to share)
+
+val generateIcons by tasks.registering(JavaExec::class) {
+    group = "distribution"
+    description = "Renders the app icon (PNG, ICNS, ICO) from the SVG logo."
+    val svg = file("src/main/resources/io/github/m1omg/shrink/desktop/icons/logo.svg")
+    val outDir = layout.buildDirectory.dir("icons")
+    inputs.file(svg)
+    outputs.dir(outDir)
+    classpath = packagingTools.runtimeClasspath
+    mainClass = "IconExport"
+    jvmArgs("-Djava.awt.headless=true")
+    args(svg.absolutePath, outDir.get().asFile.absolutePath)
+}
+
+val jpackageInput by tasks.registering(Sync::class) {
+    from(tasks.jar)
+    from(configurations.runtimeClasspath)
+    into(layout.buildDirectory.dir("jpackage/input"))
+}
+
+val appName = if (os.isMacOsX) "Shrink!" else "Shrink"
+// jpackage wants a plain numeric version such as 1.0.0.
+val appVersion = project.version.toString().replace(Regex("[^0-9.].*$"), "").ifEmpty { "1.0.0" }
+val jpackageOut = layout.buildDirectory.dir("jpackage/out")
+
+fun jpackageArgs(type: String): List<String> {
+    val icons = layout.buildDirectory.dir("icons").get().asFile
+    val args = mutableListOf(
+        File(System.getProperty("java.home"), if (os.isWindows) "bin/jpackage.exe" else "bin/jpackage").absolutePath,
+        "--type", type,
+        "--name", appName,
+        "--app-version", appVersion,
+        "--vendor", "m1omg",
+        "--description", "Compress, convert and edit videos",
+        "--copyright", "Shrink! is free software under the GNU GPL v3",
+        "--input", layout.buildDirectory.dir("jpackage/input").get().asFile.absolutePath,
+        "--main-jar", tasks.jar.get().archiveFileName.get(),
+        "--main-class", application.mainClass.get(),
+        "--dest", jpackageOut.get().asFile.absolutePath,
+        // jdk.localedata with en+sk gives correct Slovak number and date formats.
+        "--add-modules", "java.base,java.desktop,java.logging,java.prefs,jdk.localedata,jdk.accessibility,jdk.unsupported",
+        "--jlink-options", "--strip-native-commands --strip-debug --no-man-pages --no-header-files --include-locales=en,sk",
+    )
+    for (flag in jvmFlags) {
+        args += listOf("--java-options", flag)
+    }
+    when {
+        os.isMacOsX -> {
+            args += listOf("--icon", File(icons, "shrink.icns").absolutePath,
+                "--mac-package-identifier", "io.github.m1omg.shrink",
+                "--mac-package-name", "Shrink!",
+                "--mac-app-category", "public.app-category.video")
+        }
+        os.isWindows -> {
+            args += listOf("--icon", File(icons, "shrink.ico").absolutePath)
+        }
+        else -> {
+            args += listOf("--icon", File(icons, "shrink.png").absolutePath)
+            if (type != "app-image") {
+                args += listOf("--linux-package-name", "shrink",
+                    "--linux-app-category", "video",
+                    "--linux-menu-group", "AudioVideo;Video;",
+                    "--linux-shortcut",
+                    "--linux-deb-maintainer", "noreply@github.com",
+                    "--resource-dir", file("packaging/linux").absolutePath)
+            }
+        }
+    }
+    if (type != "app-image") {
+        for (association in fileTree("packaging") { include("associations-*.properties") }.files.sorted()) {
+            args += listOf("--file-associations", association.absolutePath)
+        }
+    }
+    return args
+}
+
+fun commandExists(name: String): Boolean =
+    System.getenv("PATH").orEmpty().split(File.pathSeparator).any { File(it, name).canExecute() }
+
+val packageTypes: List<String> = when {
+    os.isMacOsX -> listOf("dmg")
+    os.isWindows -> listOf("app-image")
+    else -> buildList {
+        add("app-image")
+        if (commandExists("dpkg-deb") && commandExists("fakeroot")) add("deb")
+        if (commandExists("rpmbuild")) add("rpm")
+    }
+}
+
+val cleanJpackage by tasks.registering(Delete::class) {
+    delete(jpackageOut)
+}
+
+val jpackageTasks = packageTypes.map { type ->
+    tasks.register<Exec>("jpackage${type.replace("-", "").replaceFirstChar { it.uppercase() }}") {
+        group = "distribution"
+        description = "Builds the $type package with jpackage."
+        dependsOn(jpackageInput, generateIcons, cleanJpackage)
+        doFirst { jpackageOut.get().asFile.mkdirs() }
+        commandLine(jpackageArgs(type))
+    }
+}
+
+tasks.register("jpackage") {
+    group = "distribution"
+    description = "Builds the native packages for this operating system."
+    dependsOn(jpackageTasks)
+}

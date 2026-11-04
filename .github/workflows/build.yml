@@ -1,0 +1,148 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (core + desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Install FFmpeg (for the Matroska writer tests)
+        run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+      - name: Test
+        run: ./gradlew --no-daemon -Pshrink.android=false :core:test :desktop:test
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-reports
+          path: "*/build/reports/tests/"
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Build APK
+        env:
+          # Optional: without these secrets the APK is signed with the public debug key.
+          KEYSTORE_BASE64: ${{ secrets.SHRINK_KEYSTORE_BASE64 }}
+          SHRINK_KEYSTORE_PASSWORD: ${{ secrets.SHRINK_KEYSTORE_PASSWORD }}
+          SHRINK_KEY_ALIAS: ${{ secrets.SHRINK_KEY_ALIAS }}
+          SHRINK_KEY_PASSWORD: ${{ secrets.SHRINK_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            export SHRINK_KEYSTORE="$RUNNER_TEMP/release.keystore"
+          fi
+          ./gradlew --no-daemon -Pshrink.android=true :android:assembleRelease
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp android/build/outputs/apk/release/*.apk "dist/Shrink-${GITHUB_REF_NAME//\//-}-android.apk"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: android
+          path: dist/*.apk
+
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            platform: linux-x86_64
+          - name: macOS Intel
+            os: macos-15-intel
+            platform: macosx-x86_64
+          - name: macOS Apple Silicon
+            os: macos-15
+            platform: macosx-arm64
+          - name: Windows x86_64
+            os: windows-latest
+            platform: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Install packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q fakeroot rpm
+      - name: Build packages
+        shell: bash
+        run: ./gradlew --no-daemon -Pshrink.android=false -Pshrink.platform=${{ matrix.platform }} :desktop:jpackage
+      - name: Collect packages
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          cd desktop/build/jpackage/out
+          tag="${GITHUB_REF_NAME//\//-}"
+          case "${{ matrix.platform }}" in
+            linux-*)
+              cp *.deb "../../../../dist/Shrink-$tag-linux-amd64.deb"
+              cp *.rpm "../../../../dist/Shrink-$tag-linux-x86_64.rpm"
+              tar -czf "../../../../dist/Shrink-$tag-linux-x86_64.tar.gz" Shrink
+              ;;
+            macosx-x86_64)
+              cp *.dmg "../../../../dist/Shrink-$tag-macos-intel.dmg"
+              ;;
+            macosx-arm64)
+              cp *.dmg "../../../../dist/Shrink-$tag-macos-apple-silicon.dmg"
+              ;;
+            windows-*)
+              7z a "../../../../dist/Shrink-$tag-windows-x64.zip" Shrink > /dev/null
+              ;;
+          esac
+          ls -la ../../../../dist
+      - uses: actions/upload-artifact@v6
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: dist/*
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true
