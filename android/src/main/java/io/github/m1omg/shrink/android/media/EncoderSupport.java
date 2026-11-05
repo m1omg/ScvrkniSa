@@ -39,6 +39,33 @@ public final class EncoderSupport {
         return encoderTypes;
     }
 
+    /**
+     * Whether an encoder for {@code mime} offers constant bitrate (CBR). Encoders keep
+     * to a constant bitrate much more strictly than to the default variable one.
+     */
+    public static boolean supportsConstantBitrate(String mime) {
+        for (MediaCodecInfo info : new MediaCodecList(MediaCodecList.REGULAR_CODECS).getCodecInfos()) {
+            if (!info.isEncoder()) {
+                continue;
+            }
+            for (String type : info.getSupportedTypes()) {
+                if (!type.equalsIgnoreCase(mime)) {
+                    continue;
+                }
+                try {
+                    MediaCodecInfo.EncoderCapabilities caps = info.getCapabilitiesForType(type).getEncoderCapabilities();
+                    if (caps != null && caps.isBitrateModeSupported(
+                            MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)) {
+                        return true;
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // this encoder cannot describe itself; try the next one
+                }
+            }
+        }
+        return false;
+    }
+
     public static String mimeOf(VideoCodec codec) {
         switch (codec) {
             case H265:

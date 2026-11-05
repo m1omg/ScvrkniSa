@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import io.github.m1omg.shrink.android.media.EncoderSupport;
 import io.github.m1omg.shrink.android.media.Media3Runner;
 import io.github.m1omg.shrink.android.media.OutputStore;
 import io.github.m1omg.shrink.android.service.ProcessingService;
@@ -139,10 +140,10 @@ public final class JobController {
         state = State.RUNNING;
         fire();
         ProcessingService.start(app);
-        runPass(job, workFile);
+        runPass(job, workFile, false);
     }
 
-    private void runPass(Job passJob, File out) {
+    private void runPass(Job passJob, File out, boolean constantBitrate) {
         runner = new Media3Runner(app);
         runner.start(passJob, input, out, new Media3Runner.Listener() {
             @Override
@@ -166,7 +167,7 @@ public final class JobController {
                     finishFailed(message);
                 }
             }
-        });
+        }, constantBitrate);
     }
 
     private void passCompleted(File output) {
@@ -176,9 +177,17 @@ public final class JobController {
         if (firstPass == null) {
             Job corrected = JobPlanner.correctedForSize(job, output.length());
             if (corrected != null) {
-                // The encoder overshot the estimate; try once more at a lower bitrate.
+                // The encoder overshot the estimate. Encoders keep to a constant bitrate
+                // (CBR) much more strictly than to the default variable one, so the second
+                // try uses CBR at the planned bitrate when the phone offers it, and
+                // otherwise a proportionally lower variable bitrate.
+                Job adapted = Media3Runner.adapt(job);
+                boolean cbr = adapted.video().isEncode()
+                        && EncoderSupport.supportsConstantBitrate(EncoderSupport.mimeOf(adapted.video().codec()));
+                Job second = cbr ? job : corrected;
                 Log.i(TAG, "Result " + output.length() + " B is far above the estimate of "
-                        + job.estimatedBytes() + " B; second pass at " + corrected.video().bitrate() + " bit/s");
+                        + job.estimatedBytes() + " B; second pass at " + second.video().bitrate() + " bit/s"
+                        + (cbr ? " (constant)" : ""));
                 firstPass = output;
                 correcting = true;
                 percent = 0;
@@ -188,7 +197,7 @@ public final class JobController {
                 //noinspection ResultOfMethodCallIgnored
                 workFile.delete();
                 fire();
-                runPass(corrected, workFile);
+                runPass(second, workFile, cbr);
                 return;
             }
             useResult(output);

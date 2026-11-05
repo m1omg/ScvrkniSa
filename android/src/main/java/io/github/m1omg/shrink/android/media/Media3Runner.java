@@ -1,6 +1,7 @@
 package io.github.m1omg.shrink.android.media;
 
 import android.content.Context;
+import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -81,11 +82,19 @@ public final class Media3Runner {
     }
 
     public void start(Job job, Uri input, File output, Listener listener) {
+        start(job, input, output, listener, false);
+    }
+
+    /**
+     * @param constantBitrate encode video with a constant bitrate (CBR) instead of the
+     *                        default variable one; used when a first try came out too big
+     */
+    public void start(Job job, Uri input, File output, Listener listener, boolean constantBitrate) {
         Job adapted = adapt(job);
         if (adapted.isAudioOnly() && adapted.audioFormat() == AudioFileFormat.MP3) {
             runMp3(adapted, input, output, listener);
         } else {
-            runTransformer(adapted, input, output, listener);
+            runTransformer(adapted, input, output, listener, constantBitrate);
         }
     }
 
@@ -125,7 +134,7 @@ public final class Media3Runner {
 
     // ------------------------------------------------------------------ Transformer
 
-    private void runTransformer(Job job, Uri input, File output, Listener listener) {
+    private void runTransformer(Job job, Uri input, File output, Listener listener, boolean constantBitrate) {
         MediaItem.Builder itemBuilder = new MediaItem.Builder().setUri(input);
         if (job.trim() != null) {
             itemBuilder.setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
@@ -184,7 +193,8 @@ public final class Media3Runner {
                         }
                         Log.i(TAG, "Exported " + result.fileSizeBytes + " B; video: " + result.videoEncoderName
                                 + " " + result.averageVideoBitrate + " bit/s (asked "
-                                + (job.video().isEncode() ? job.video().bitrate() : 0) + "); audio: "
+                                + (job.video().isEncode() ? job.video().bitrate() : 0)
+                                + (constantBitrate ? ", constant" : "") + "); audio: "
                                 + result.audioEncoderName + " " + result.averageAudioBitrate + " bit/s");
                         try {
                             if (job.container() == Container.MOV) {
@@ -209,9 +219,11 @@ public final class Media3Runner {
         if (encodeVideo) {
             builder.setVideoMimeType(EncoderSupport.mimeOf(job.video().codec()));
             long bitrate = Math.min(Integer.MAX_VALUE, Math.max(64_000, job.video().bitrate()));
-            encoders.setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder()
-                    .setBitrate((int) bitrate)
-                    .build());
+            VideoEncoderSettings.Builder settings = new VideoEncoderSettings.Builder().setBitrate((int) bitrate);
+            if (constantBitrate) {
+                settings.setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
+            }
+            encoders.setRequestedVideoEncoderSettings(settings.build());
         }
         if (audio && job.audio().isEncode()) {
             builder.setAudioMimeType(EncoderSupport.mimeOf(job.audio().codec()));
