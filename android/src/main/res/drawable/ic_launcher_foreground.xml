@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Shrink! logo (viewfinder corners around a play button), from tools/icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.96"
+        android:scaleY="0.96">
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M300 400V330a30 30 0 0 1 30-30h70M624 300h70a30 30 0 0 1 30 30v70M724 624v70a30 30 0 0 1-30 30h-70M400 724h-70a30 30 0 0 1-30-30v-70"
+            android:strokeWidth="56"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M450 395v234a18 18 0 0 0 27 15.6l196-117a18 18 0 0 0 0-31.2l-196-117A18 18 0 0 0 450 395z" />
+    </group>
+</vector>

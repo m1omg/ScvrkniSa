@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Shrink!
+GenericName=Video Compressor
+GenericName[sk]=Kompresor videa
+Comment=Compress, convert and edit videos
+Comment[sk]=Komprimujte, konvertujte a upravujte videá
+Exec=APPLICATION_LAUNCHER %f
+Icon=APPLICATION_ICON
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+MimeType=video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;video/mpeg;video/3gpp;video/x-m4v;
+Keywords=video;compress;convert;shrink;trim;rotate;audio;
+StartupWMClass=shrink
