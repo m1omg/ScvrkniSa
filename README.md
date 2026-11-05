@@ -120,7 +120,10 @@ with a suffix such as `-compressed`, and an existing file is never overwritten.
 resolution, frame rate, length and codec, so they are estimates, but usually
 close. **Target size** aims slightly below the size you ask for. On the
 desktop, the software encoder makes two passes to hit it accurately; with a
-hardware encoder, Shrink! leaves a slightly bigger safety margin instead.
+hardware encoder, Shrink! leaves a slightly bigger safety margin instead. If an
+encoder (usually a hardware one) still overshoots the estimate by more than
+15 %, Shrink! automatically encodes once more at a lower bitrate and keeps the
+smaller file.
 
 ## Building it yourself
 

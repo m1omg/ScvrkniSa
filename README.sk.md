@@ -125,7 +125,9 @@ neprepíše.
 frekvencie, dĺžky a kodeku, takže sú to odhady, no zvyčajne presné.
 **Cieľová veľkosť** mieri o trochu nižšie, ako zadáte. Na počítači softvérový
 kodér prejde video dvakrát, aby veľkosť presne trafil; s hardvérovým kodérom
-si Shrink! namiesto toho nechá o niečo väčšiu rezervu.
+si Shrink! namiesto toho nechá o niečo väčšiu rezervu. Ak kodér (zvyčajne
+hardvérový) aj tak prekročí odhad o viac ako 15 %, Shrink! video automaticky
+zakóduje ešte raz s nižším dátovým tokom a ponechá menší súbor.
 
 ## Zostavenie zo zdrojového kódu
 
