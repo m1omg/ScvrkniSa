@@ -4,7 +4,9 @@
 
 Shrink! makes videos smaller, converts them to other formats and does quick
 edits. It runs on **Linux**, **macOS** (Intel and Apple Silicon, macOS 12
-Monterey or newer) and **Android** (10 or newer), in **English** and **Slovak**.
+Monterey or newer), **Windows 10 and 11** and **Android** (10 or newer), in
+**English** and **Slovak**. Everything it needs is included: no Java, no FFmpeg
+and no codec packs to install.
 
 ![Shrink! on the desktop: compressing a video](docs/screenshots/desktop-compress.png)
 
@@ -65,11 +67,13 @@ published. The newest test builds are also attached to each run on the
 | Ubuntu, Debian, Linux Mint, Pop!_OS… | `Shrink-…-linux-amd64.deb` |
 | Fedora, openSUSE… | `Shrink-…-linux-x86_64.rpm` |
 | Any 64-bit Linux | `Shrink-…-linux-x86_64.tar.gz` (unpack, run `Shrink/bin/Shrink`) |
+| Windows 10 and 11 (64-bit) | `Shrink-…-windows-x64.msi` (installer) or `Shrink-…-windows-x64.zip` (portable: unpack, run `Shrink.exe`) |
 | Android 10+ | `Shrink-…-android.apk` |
-| Windows (bonus, not tested) | `Shrink-…-windows-x64.zip` (unpack, run `Shrink.exe`) |
 
 Everything is included: Shrink! brings its own Java runtime and its own FFmpeg,
-so there is nothing else to install.
+so there is nothing else to install, and it works offline. The Linux packages
+need a desktop distribution from 2019 or later (glibc 2.29: Ubuntu 20.04,
+Debian 11, Fedora 30, Linux Mint 20 or newer).
 
 ### macOS: the first start
 
@@ -85,6 +89,14 @@ first time. Open the DMG, drag **Shrink!** into **Applications**, and then:
   ```sh
   xattr -dr com.apple.quarantine "/Applications/Shrink!.app"
   ```
+
+### Windows
+
+Run the `.msi` installer. It installs Shrink! for your user account only, so it
+does not need administrator rights, and adds it to the Start menu. Shrink! is
+not signed with a paid code-signing certificate, so Windows SmartScreen may say
+"Windows protected your PC": click **More info**, then **Run anyway**. The
+portable `.zip` needs no installation at all.
 
 ### Linux
 

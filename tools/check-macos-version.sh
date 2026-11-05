@@ -1,7 +1,8 @@
 #!/bin/bash
 # Checks that every program and library in a Shrink! DMG runs on the given
-# macOS version (default 12.0, Monterey): the launcher, the Java runtime and the
-# bundled FFmpeg. Run on a Mac:  tools/check-macos-version.sh Shrink!-1.0.0.dmg 12.0
+# macOS version (default 12.0, Monterey) and needs nothing that is not part of
+# macOS or of the app itself: the launcher, the Java runtime and the bundled
+# FFmpeg. Run on a Mac:  tools/check-macos-version.sh Shrink!-1.0.0.dmg 12.0
 set -euo pipefail
 
 dmg="$1"
@@ -17,9 +18,13 @@ if [ -z "$app" ]; then
     echo "No .app found in $dmg" >&2
     exit 1
 fi
-# FFmpeg is inside a jar and is unpacked when the app first needs it.
-for jar in "$app"/Contents/app/ffmpeg-*.jar; do
-    [ -e "$jar" ] && unzip -q -o "$jar" -d "$work"
+# FFmpeg and FlatLaf's native libraries are inside jars and are unpacked when
+# the app first needs them, so they are checked too.
+for jar in "$app"/Contents/app/*.jar; do
+    case "$jar" in
+        */ffmpeg-*.jar) unzip -q -o "$jar" -d "$work/ffmpeg" ;;
+        *) unzip -q -o "$jar" '*.dylib' '*.jnilib' -d "$work/$(basename "$jar")" > /dev/null 2>&1 || true ;;
+    esac
 done
 
 # Prints the minimum macOS version a Mach-O file was built for.
@@ -34,6 +39,7 @@ min_version() {
 
 checked=0
 too_new=0
+foreign=0
 report="$(mktemp)"
 while IFS= read -r -d '' f; do
     case "$(file -b "$f")" in
@@ -48,6 +54,16 @@ while IFS= read -r -d '' f; do
         echo "Needs macOS $v (newer than $oldest): ${f#"$mnt"/}"
         too_new=$((too_new + 1))
     fi
+    # Every library it loads must come with macOS or with the app (no Homebrew etc.).
+    while IFS= read -r ref; do
+        case "$ref" in
+            /usr/lib/*|/System/*|@rpath/*|@loader_path/*|@executable_path/*) ;;
+            *)
+                echo "Needs a library that is not part of macOS: $ref (${f#"$mnt"/})"
+                foreign=$((foreign + 1))
+                ;;
+        esac
+    done < <(otool -L "$f" 2> /dev/null | awk '/^\t/ { print $1 }' || true)
 done < <(find "$app" "$work" -type f -print0)
 
 echo "Checked $checked programs and libraries. The highest minimum versions:"
@@ -59,8 +75,8 @@ if [ "$checked" -eq 0 ]; then
     echo "Found nothing to check." >&2
     exit 1
 fi
-if [ "$too_new" -gt 0 ]; then
-    echo "$too_new file(s) need a macOS newer than $oldest." >&2
+if [ "$too_new" -gt 0 ] || [ "$foreign" -gt 0 ]; then
+    echo "$too_new file(s) need a macOS newer than $oldest; $foreign reference(s) to outside libraries." >&2
     exit 1
 fi
-echo "Everything runs on macOS $oldest or newer."
+echo "Everything runs on macOS $oldest or newer and needs nothing outside macOS and the app."

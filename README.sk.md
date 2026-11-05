@@ -4,7 +4,9 @@
 
 Shrink! zmenšuje videá, prevádza ich do iných formátov a robí rýchle úpravy.
 Funguje na **Linuxe**, **macOS** (Intel aj Apple Silicon, macOS 12 Monterey
-alebo novší) a **Androide** (10 alebo novší), po **slovensky** aj **anglicky**.
+alebo novší), **Windows 10 a 11** a **Androide** (10 alebo novší), po
+**slovensky** aj **anglicky**. Všetko potrebné je súčasťou aplikácie: netreba
+inštalovať Javu, FFmpeg ani balíky kodekov.
 
 ![Shrink! na počítači: komprimovanie videa](docs/screenshots/desktop-compress.png)
 
@@ -66,11 +68,13 @@ treba byť prihlásený na GitHube).
 | Ubuntu, Debian, Linux Mint, Pop!_OS… | `Shrink-…-linux-amd64.deb` |
 | Fedora, openSUSE… | `Shrink-…-linux-x86_64.rpm` |
 | Akýkoľvek 64-bitový Linux | `Shrink-…-linux-x86_64.tar.gz` (rozbaľte a spustite `Shrink/bin/Shrink`) |
+| Windows 10 a 11 (64-bitové) | `Shrink-…-windows-x64.msi` (inštalátor) alebo `Shrink-…-windows-x64.zip` (prenosná verzia: rozbaľte a spustite `Shrink.exe`) |
 | Android 10+ | `Shrink-…-android.apk` |
-| Windows (bonus, netestované) | `Shrink-…-windows-x64.zip` (rozbaľte a spustite `Shrink.exe`) |
 
 Všetko potrebné je súčasťou balíka: Shrink! má vlastné prostredie Java aj
-vlastný FFmpeg, takže netreba nič ďalšie inštalovať.
+vlastný FFmpeg, takže netreba nič ďalšie inštalovať a funguje aj bez
+internetu. Balíky pre Linux potrebujú distribúciu z roku 2019 alebo novšiu
+(glibc 2.29: Ubuntu 20.04, Debian 11, Fedora 30, Linux Mint 20 alebo novšie).
 
 ### macOS: prvé spustenie
 
@@ -89,6 +93,15 @@ pri prvom spustení zablokuje. Otvorte DMG, presuňte **Shrink!** do priečinka
   ```sh
   xattr -dr com.apple.quarantine "/Applications/Shrink!.app"
   ```
+
+### Windows
+
+Spustite inštalátor `.msi`. Nainštaluje Shrink! iba pre váš používateľský účet,
+takže nepotrebuje práva správcu, a pridá ho do ponuky Štart. Shrink! nie je
+podpísaný plateným certifikátom, preto môže Windows SmartScreen zobraziť
+modré upozornenie: kliknite na odkaz s ďalšími informáciami a potom na
+tlačidlo, ktoré aplikáciu aj tak spustí (v angličtine „More info“ a „Run
+anyway“). Prenosná verzia `.zip` sa vôbec neinštaluje.
 
 ### Linux
 

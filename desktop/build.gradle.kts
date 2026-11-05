@@ -97,7 +97,7 @@ tasks.named<JavaExec>("run") {
 // `./gradlew :desktop:jpackage` builds the app with its own Java runtime:
 //   macOS   -> build/jpackage/out/Shrink!-<version>.dmg
 //   Linux   -> .deb, .rpm (when the tools are installed) and a portable folder
-//   Windows -> a portable folder (zip it to share)
+//   Windows -> an .msi installer (when WiX Toolset 3 is installed) and a portable folder
 
 val generateIcons by tasks.registering(JavaExec::class) {
     group = "distribution"
@@ -153,6 +153,16 @@ fun jpackageArgs(type: String): List<String> {
         }
         os.isWindows -> {
             args += listOf("--icon", File(icons, "shrink.ico").absolutePath)
+            if (type == "msi") {
+                // Installs for the current user only, so no administrator rights are needed.
+                args += listOf("--win-per-user-install",
+                    "--win-menu", "--win-menu-group", "Shrink!",
+                    "--win-shortcut", "--win-shortcut-prompt",
+                    "--win-dir-chooser",
+                    // Never change: lets new versions replace old ones.
+                    "--win-upgrade-uuid", "5f8a3c1e-2b7d-4e9a-9c64-0d1b7e3a52f4",
+                    "--about-url", "https://github.com/m1omg/ScvrkniSa")
+            }
         }
         else -> {
             args += listOf("--icon", File(icons, "shrink.png").absolutePath)
@@ -163,6 +173,15 @@ fun jpackageArgs(type: String): List<String> {
                     "--linux-shortcut",
                     "--linux-deb-maintainer", "noreply@github.com",
                     "--resource-dir", file("packaging/linux").absolutePath)
+                // The bundled FFmpeg sits inside a jar, where jpackage cannot see which
+                // system libraries it uses, so they are listed here. Every desktop
+                // distribution has them; this only matters on minimal systems.
+                args += listOf("--linux-package-deps", if (type == "deb") {
+                    "libasound2, libpulse0, libxcb1, libxcb-shm0, libstdc++6, libgcc-s1"
+                } else {
+                    "libasound.so.2()(64bit), libpulse.so.0()(64bit), libxcb.so.1()(64bit), " +
+                        "libxcb-shm.so.0()(64bit), libstdc++.so.6()(64bit)"
+                })
             }
         }
     }
@@ -177,9 +196,13 @@ fun jpackageArgs(type: String): List<String> {
 fun commandExists(name: String): Boolean =
     System.getenv("PATH").orEmpty().split(File.pathSeparator).any { File(it, name).canExecute() }
 
+// WiX Toolset 3 builds the Windows installer; jpackage finds it on the PATH or in
+// its default folder (the WIX variable points there).
+fun wixAvailable(): Boolean = commandExists("candle.exe") || System.getenv("WIX") != null
+
 val packageTypes: List<String> = when {
     os.isMacOsX -> listOf("dmg")
-    os.isWindows -> listOf("app-image")
+    os.isWindows -> if (wixAvailable()) listOf("app-image", "msi") else listOf("app-image")
     else -> buildList {
         add("app-image")
         if (commandExists("dpkg-deb") && commandExists("fakeroot")) add("deb")
