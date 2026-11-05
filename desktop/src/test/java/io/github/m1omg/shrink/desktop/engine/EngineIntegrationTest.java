@@ -121,6 +121,27 @@ class EngineIntegrationTest {
     }
 
     @Test
+    void anOvershootIsCorrectedWithASecondPass() throws Exception {
+        MediaInfo src = engine.probe(clip720);
+        Plan plan = PLANNER.compress(src, CompressionRequest.of(CompressionPreset.BALANCED));
+        Job job = plan.job();
+        // Pretend the person was promised a third of what this bitrate really gives,
+        // as if the encoder had overshot three times.
+        Job promised = job.toBuilder().estimatedBytes(job.estimatedBytes() / 3).build();
+        List<Engine.Progress> updates = new ArrayList<>();
+        Engine.Result result = engine.run(promised, clip720, dir.resolve("corrected.mp4"), updates::add, null);
+        assertTrue(updates.stream().anyMatch(Engine.Progress::correcting), "a second pass ran");
+        assertTrue(result.sizeBytes() < job.estimatedBytes() * 0.6,
+                "corrected size " + result.sizeBytes() + " vs uncorrected estimate " + job.estimatedBytes());
+        MediaInfo out = engine.probe(result.output());
+        assertEquals(6.0, out.durationSeconds(), 0.15);
+        try (var files = Files.list(dir)) {
+            assertTrue(files.noneMatch(f -> f.getFileName().toString().endsWith(".part2")
+                    || f.getFileName().toString().endsWith(".part")), "temporary files are removed");
+        }
+    }
+
+    @Test
     void trimFastAndPrecise() throws Exception {
         MediaInfo src = engine.probe(clip360);
         Engine.Result precise = run(PLANNER.trim(src, new TimeRange(1.0, 2.5), true), "trim-precise.mp4");

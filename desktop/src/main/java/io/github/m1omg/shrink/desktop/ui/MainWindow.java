@@ -658,7 +658,8 @@ public final class MainWindow extends JFrame implements ToolHost {
         app.background(() -> {
             try {
                 Engine.Result result = engine.run(job, input, output, p -> SwingUtilities.invokeLater(() -> {
-                    overlay.updateProgress(p.fraction(), p.remainingSeconds(), p.speed(), p.pass(), p.passCount());
+                    overlay.updateProgress(p.fraction(), p.remainingSeconds(), p.speed(), p.pass(), p.passCount(),
+                            p.correcting());
                     setDockProgress((int) Math.round(p.fraction() * 100));
                 }), token);
                 SwingUtilities.invokeLater(() -> finished(job, info, input, result));

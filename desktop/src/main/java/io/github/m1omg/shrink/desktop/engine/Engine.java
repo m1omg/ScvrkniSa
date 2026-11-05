@@ -3,6 +3,7 @@ package io.github.m1omg.shrink.desktop.engine;
 import io.github.m1omg.shrink.core.model.Job;
 import io.github.m1omg.shrink.core.model.MediaInfo;
 import io.github.m1omg.shrink.core.model.VideoStream;
+import io.github.m1omg.shrink.core.plan.JobPlanner;
 import io.github.m1omg.shrink.core.store.Json;
 
 import javax.imageio.ImageIO;
@@ -26,9 +27,12 @@ import java.util.stream.Stream;
  */
 public final class Engine {
 
-    /** Progress of a whole job, all passes together. */
+    /**
+     * Progress of a whole job, all passes together. {@code correcting} is true during
+     * the extra pass made when the first result came out far bigger than estimated.
+     */
     public record Progress(double fraction, int pass, int passCount, double speed, double elapsedSeconds,
-                           double remainingSeconds) {
+                           double remainingSeconds, boolean correcting) {
     }
 
     /** Receives job progress (on a background thread). */
@@ -101,7 +105,7 @@ public final class Engine {
             work = Files.createTempDirectory("shrink-");
             CommandBuilder.Commands commands = builder.build(job, input, partial, true);
             try {
-                runPasses(commands, job, work, listener, token, started, true);
+                runPasses(commands, job, work, listener, token, started, true, false);
             } catch (EngineException e) {
                 if (!commands.usesHardware() || (token != null && token.isCancelled())) {
                     throw e;
@@ -112,11 +116,12 @@ public final class Engine {
                 }
                 deleteQuietly(partial);
                 commands = builder.build(job, input, partial, false);
-                runPasses(commands, job, work, listener, token, started, true);
+                runPasses(commands, job, work, listener, token, started, true, false);
             }
             if (!Files.isRegularFile(partial) || Files.size(partial) == 0) {
                 throw new EngineException("FFmpeg did not produce an output file");
             }
+            commands = correctSize(job, input, partial, commands, work, listener, token);
             Files.move(partial, output, StandardCopyOption.REPLACE_EXISTING);
             double seconds = (System.nanoTime() - started) / 1e9;
             return new Result(output, Files.size(output), seconds, commands.videoEncoder(), commands.hardware());
@@ -126,6 +131,35 @@ public final class Engine {
             deleteQuietly(partial);
             deleteTree(work);
         }
+    }
+
+    /**
+     * Hardware encoders (and, rarely, one-pass software encoding) do not always keep
+     * to the bitrate. When {@code partial} came out far bigger than the estimate the
+     * person saw, encodes once more with a lower bitrate and keeps the smaller file.
+     * Returns the commands that produced the file that is kept.
+     */
+    private CommandBuilder.Commands correctSize(Job job, Path input, Path partial, CommandBuilder.Commands commands,
+                                                Path work, Listener listener, FfmpegRunner.CancelToken token)
+            throws IOException, FfmpegRunner.CancelledException {
+        Job corrected = JobPlanner.correctedForSize(job, Files.size(partial));
+        if (corrected == null || (token != null && token.isCancelled())) {
+            return commands;
+        }
+        Path second = partial.resolveSibling(partial.getFileName() + "2");
+        try {
+            CommandBuilder.Commands again = builder.build(corrected, input, second, commands.usesHardware());
+            runPasses(again, corrected, work, listener, token, System.nanoTime(), true, true);
+            if (Files.isRegularFile(second) && Files.size(second) > 0 && Files.size(second) < Files.size(partial)) {
+                Files.move(second, partial, StandardCopyOption.REPLACE_EXISTING);
+                return again;
+            }
+        } catch (EngineException e) {
+            // The first result is still good.
+        } finally {
+            deleteQuietly(second);
+        }
+        return commands;
     }
 
     /**
@@ -141,13 +175,13 @@ public final class Engine {
             work = Files.createTempDirectory("shrink-preview-");
             CommandBuilder.Commands commands = builder.build(previewJob, input, target, true);
             try {
-                runPasses(commands, previewJob, work, listener, token, started, false);
+                runPasses(commands, previewJob, work, listener, token, started, false, false);
             } catch (EngineException e) {
                 if (!commands.usesHardware() || (token != null && token.isCancelled())) {
                     throw e;
                 }
                 commands = builder.build(previewJob, input, target, false);
-                runPasses(commands, previewJob, work, listener, token, started, false);
+                runPasses(commands, previewJob, work, listener, token, started, false, false);
             }
             return new Result(target, Files.size(target), (System.nanoTime() - started) / 1e9,
                     commands.videoEncoder(), commands.hardware());
@@ -159,7 +193,8 @@ public final class Engine {
     }
 
     private void runPasses(CommandBuilder.Commands commands, Job job, Path work, Listener listener,
-                           FfmpegRunner.CancelToken token, long startedNanos, boolean lowPriority)
+                           FfmpegRunner.CancelToken token, long startedNanos, boolean lowPriority,
+                           boolean correcting)
             throws EngineException, FfmpegRunner.CancelledException {
         double duration = Math.max(job.outputDuration(), 0.001);
         double before = 0;
@@ -174,7 +209,7 @@ public final class Engine {
                 double fraction = offset + pass.weight() * passFraction;
                 double elapsed = (System.nanoTime() - startedNanos) / 1e9;
                 listener.progress(new Progress(fraction, pass.number(), pass.count(), speed, elapsed,
-                        eta.update(fraction, elapsed)));
+                        eta.update(fraction, elapsed), correcting));
             };
             FfmpegRunner.run(pass.args(), work, lowPriority, sink, token);
             before += pass.weight();

@@ -114,8 +114,10 @@ public final class JobOverlay extends JPanel {
      * @param speed     speed relative to real time, 0 when unknown
      * @param pass      current pass (1-based)
      * @param passes    number of passes
+     * @param correcting true during an extra pass that brings the size closer to the estimate
      */
-    public void updateProgress(double fraction, double remaining, double speed, int pass, int passes) {
+    public void updateProgress(double fraction, double remaining, double speed, int pass, int passes,
+                               boolean correcting) {
         if (bar == null) {
             return;
         }
@@ -128,7 +130,9 @@ public final class JobOverlay extends JPanel {
         }
         status.setText(s.toString());
         List<String> parts = new ArrayList<>();
-        if (passes > 1) {
+        if (correcting) {
+            parts.add(I18n.tr("progress.secondPass"));
+        } else if (passes > 1) {
             parts.add(I18n.tr("progress.pass", pass, passes));
         }
         if (speed > 0) {
