@@ -37,6 +37,14 @@ min_version() {
         END                                    { print v }' || true
 }
 
+# Prints the libraries a Mach-O file loads (not its own install name, which
+# for a library is only an identifier).
+loaded_libraries() {
+    otool -l "$1" 2> /dev/null | awk '
+        $1 == "cmd" { cmd = $2 }
+        $1 == "name" && cmd ~ /^LC_(LOAD|LOAD_WEAK|REEXPORT|LAZY_LOAD|LOAD_UPWARD)_DYLIB$/ { print $2 }' || true
+}
+
 checked=0
 too_new=0
 foreign=0
@@ -63,7 +71,7 @@ while IFS= read -r -d '' f; do
                 foreign=$((foreign + 1))
                 ;;
         esac
-    done < <(otool -L "$f" 2> /dev/null | awk '/^\t/ { print $1 }' || true)
+    done < <(loaded_libraries "$f")
 done < <(find "$app" "$work" -type f -print0)
 
 echo "Checked $checked programs and libraries. The highest minimum versions:"
