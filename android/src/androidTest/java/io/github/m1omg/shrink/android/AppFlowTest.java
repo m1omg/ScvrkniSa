@@ -80,7 +80,8 @@ public class AppFlowTest {
         TestSupport.screenshot("05-result");
         assertEquals(TestSupport.onMain(() -> ShrinkApp.get().jobs().error()), JobController.State.DONE, end);
         long bytes = TestSupport.onMain(() -> ShrinkApp.get().jobs().resultBytes());
-        assertTrue("the result is smaller than the original: " + bytes, bytes > 0 && bytes < video.length());
+        assertTrue("the result is not empty", bytes > 0);
+        TestSupport.assertSize("the result is smaller than the original: " + bytes, bytes < video.length());
 
         activity.getScenario().onActivity(a -> {
             ShrinkApp.get().jobs().dismiss();

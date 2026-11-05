@@ -87,7 +87,7 @@ public class ToolsTest {
         assertEquals(o.toString(), "video/avc", o.videoMime);
         assertNotNull(o.toString(), o.audioMime);
         assertDuration(o, SOURCE_SECONDS, 0.35);
-        assertTrue("smaller than the original: " + o, o.bytes < video.length());
+        TestSupport.assertSize("smaller than the original: " + o, o.bytes < video.length());
         assertFalse(o.toString(), o.isPortrait());
     }
 
@@ -95,7 +95,7 @@ public class ToolsTest {
     public void compressSmallFile() throws Exception {
         TestSupport.Output o = run(planner().compress(source, CompressionRequest.of(CompressionPreset.SMALL_FILE)));
         assertDuration(o, SOURCE_SECONDS, 0.35);
-        assertTrue("much smaller than the original: " + o, o.bytes < video.length() * 0.8);
+        TestSupport.assertSize("much smaller than the original: " + o, o.bytes < video.length() * 0.8);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class ToolsTest {
         TestSupport.Output o = run(plan);
         assertDuration(o, SOURCE_SECONDS, 0.35);
         // Hardware encoders are less exact than software ones; allow 25 % for this tiny clip.
-        assertTrue("close to the target of " + target + ": " + o, o.bytes < target * 1.25);
+        TestSupport.assertSize("close to the target of " + target + ": " + o, o.bytes < target * 1.25);
     }
 
     @Test
