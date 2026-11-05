@@ -152,10 +152,14 @@ public final class ProgressFragment extends Fragment implements JobController.Li
         title.setText(job == null ? "" : I18n.tr(job.kind().titleKey()));
         big.setVisibility(View.GONE);
         subtitle.setText(job == null ? "" : job.source().fileName());
+        String eta = jobs.remainingSeconds() >= 0
+                ? I18n.tr("progress.remaining", f.durationWords(jobs.remainingSeconds())) : null;
         if (jobs.state() == JobController.State.SAVING) {
             detail.setText(I18n.tr("progress.finishing"));
-        } else if (jobs.remainingSeconds() >= 0) {
-            detail.setText(I18n.tr("progress.remaining", f.durationWords(jobs.remainingSeconds())));
+        } else if (jobs.isCorrecting()) {
+            detail.setText(I18n.tr("progress.secondPass") + (eta == null ? "" : "\n" + eta));
+        } else if (eta != null) {
+            detail.setText(eta);
         } else {
             detail.setText(I18n.tr("progress.preparing"));
         }

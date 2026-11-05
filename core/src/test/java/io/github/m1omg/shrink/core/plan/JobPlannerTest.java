@@ -210,4 +210,35 @@ class JobPlannerTest {
         assertFalse(mkv.has(PlanWarning.SUBTITLES_DROPPED));
         assertTrue(mkv.job().keepSubtitles());
     }
+
+    @Test
+    void overshootingEncodersGetOneCorrectedPass() {
+        MediaInfo src = TestMedia.example720p();
+        Job job = planner.compress(src, CompressionRequest.of(CompressionPreset.BALANCED)).job();
+        long estimate = job.estimatedBytes();
+
+        // Close to the estimate, or only slightly above it: nothing to correct.
+        assertEquals(null, JobPlanner.correctedForSize(job, estimate));
+        assertEquals(null, JobPlanner.correctedForSize(job, Math.round(estimate * 1.1)));
+
+        // Three times too big, as the Android emulator's encoder did: a much lower bitrate.
+        Job corrected = JobPlanner.correctedForSize(job, estimate * 3);
+        assertTrue(corrected != null);
+        assertTrue(corrected.video().bitrate() < job.video().bitrate() * 0.4,
+                corrected.video().bitrate() + " vs " + job.video().bitrate());
+        assertTrue(corrected.video().bitrate() >= job.video().bitrate() * 0.25, "never below a quarter");
+        assertEquals(estimate, corrected.estimatedBytes(), "the goal stays what the person saw");
+        assertEquals(job.video().codec(), corrected.video().codec());
+        assertEquals(job.outputWidth(), corrected.outputWidth());
+
+        // Moderately too big: a moderate correction.
+        Job mild = JobPlanner.correctedForSize(job, Math.round(estimate * 1.3));
+        assertTrue(mild != null);
+        assertTrue(mild.video().bitrate() > corrected.video().bitrate());
+        assertTrue(mild.video().bitrate() <= job.video().bitrate() * 0.9);
+
+        // Only compression is corrected; copies and other tools are left alone.
+        Job trim = planner.trim(src, new TimeRange(1, 5), false).job();
+        assertEquals(null, JobPlanner.correctedForSize(trim, trim.estimatedBytes() * 3 + 1_000_000));
+    }
 }

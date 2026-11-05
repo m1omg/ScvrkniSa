@@ -96,9 +96,11 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
+            adb logcat -G 16M || true
             ./gradlew --no-daemon -Pshrink.android=true :android:connectedDebugAndroidTest || touch android-tests-failed
             mkdir -p emulator-output && adb pull /sdcard/Pictures/ShrinkTests emulator-output/screenshots || true
             adb logcat -d > emulator-output/logcat.txt || true
+            grep -E " (Shrink|AndroidRuntime)[ :]" emulator-output/logcat.txt | tail -n 120 || true
             test ! -f android-tests-failed
       - uses: actions/upload-artifact@v6
         if: always()

@@ -171,6 +171,8 @@ final class TestSupport {
         assertNotNull("result uri", uri);
         Output o = Output.inspect(uri);
         o.bytes = bytes;
+        o.plan = "estimate " + job.estimatedBytes() + " B"
+                + (job.video().isEncode() ? ", video asked " + job.video().bitrate() + " bit/s" : "");
         return o;
     }
 
@@ -186,6 +188,7 @@ final class TestSupport {
         String videoMime;
         String audioMime;
         int audioChannels;
+        String plan = "";
 
         boolean isPortrait() {
             boolean swap = rotation == 90 || rotation == 270;
@@ -244,7 +247,7 @@ final class TestSupport {
         public String toString() {
             return "Output{" + bytes + " B, " + durationSeconds + " s, " + width + "x" + height + " rot " + rotation
                     + ", frames " + frameCount + ", video " + videoMime + ", audio " + audioMime + " x"
-                    + audioChannels + ", " + uri + "}";
+                    + audioChannels + ", " + plan + "}";
         }
     }
 

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.OptIn;
 import androidx.media3.common.Effect;
@@ -55,6 +56,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @OptIn(markerClass = UnstableApi.class)
 public final class Media3Runner {
+
+    private static final String TAG = "Shrink";
 
     /** Receives progress and the outcome on the main thread. */
     public interface Listener {
@@ -179,6 +182,10 @@ public final class Media3Runner {
                         if (cancelled.get()) {
                             return;
                         }
+                        Log.i(TAG, "Exported " + result.fileSizeBytes + " B; video: " + result.videoEncoderName
+                                + " " + result.averageVideoBitrate + " bit/s (asked "
+                                + (job.video().isEncode() ? job.video().bitrate() : 0) + "); audio: "
+                                + result.audioEncoderName + " " + result.averageAudioBitrate + " bit/s");
                         try {
                             if (job.container() == Container.MOV) {
                                 MovBrand.apply(output);

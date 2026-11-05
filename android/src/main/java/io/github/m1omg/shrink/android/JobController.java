@@ -3,12 +3,14 @@ package io.github.m1omg.shrink.android;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import io.github.m1omg.shrink.android.media.Media3Runner;
 import io.github.m1omg.shrink.android.media.OutputStore;
 import io.github.m1omg.shrink.android.service.ProcessingService;
 import io.github.m1omg.shrink.core.model.Job;
 import io.github.m1omg.shrink.core.model.MediaInfo;
+import io.github.m1omg.shrink.core.plan.JobPlanner;
 import io.github.m1omg.shrink.core.plan.PlanText;
 import io.github.m1omg.shrink.core.store.HistoryEntry;
 import io.github.m1omg.shrink.core.util.OutputNames;
@@ -24,6 +26,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * All methods are called on the main thread.
  */
 public final class JobController {
+
+    private static final String TAG = "Shrink";
 
     /** What the controller is doing. */
     public enum State { IDLE, RUNNING, SAVING, DONE, FAILED }
@@ -44,6 +48,12 @@ public final class JobController {
     private double remainingSeconds = -1;
     private Media3Runner runner;
     private File workFile;
+    private Uri input;
+    private Uri destination;
+    private String outputName;
+    /** The first result while a corrected second pass runs, else null. */
+    private File firstPass;
+    private boolean correcting;
     private Uri resultUri;
     private String resultName;
     private long resultBytes;
@@ -86,6 +96,11 @@ public final class JobController {
         return error;
     }
 
+    /** True while a second pass runs because the first result came out too big. */
+    public boolean isCorrecting() {
+        return correcting;
+    }
+
     public boolean isBusy() {
         return state == State.RUNNING || state == State.SAVING;
     }
@@ -109,19 +124,27 @@ public final class JobController {
         this.resultBytes = 0;
         this.error = null;
         this.startedNanos = System.nanoTime();
-        String name = OutputNames.sanitize(OutputNames.suggest(job.source().fileName(), fileSuffix,
+        this.input = input;
+        this.destination = destination;
+        this.firstPass = null;
+        this.correcting = false;
+        outputName = OutputNames.sanitize(OutputNames.suggest(job.source().fileName(), fileSuffix,
                 job.outputExtension(), null));
         File dir = new File(app.getCacheDir(), "output");
         //noinspection ResultOfMethodCallIgnored
         dir.mkdirs();
-        workFile = new File(dir, name);
+        workFile = new File(dir, outputName);
         //noinspection ResultOfMethodCallIgnored
         workFile.delete();
         state = State.RUNNING;
         fire();
         ProcessingService.start(app);
+        runPass(job, workFile);
+    }
+
+    private void runPass(Job passJob, File out) {
         runner = new Media3Runner(app);
-        runner.start(job, input, workFile, new Media3Runner.Listener() {
+        runner.start(passJob, input, out, new Media3Runner.Listener() {
             @Override
             public void progress(int p) {
                 percent = Math.max(percent, Math.min(100, p));
@@ -131,14 +154,58 @@ public final class JobController {
 
             @Override
             public void completed(File output) {
-                save(output, name, destination);
+                passCompleted(output);
             }
 
             @Override
             public void failed(String message) {
-                finishFailed(message);
+                if (firstPass != null) {
+                    // The corrected pass failed, but the first result is still good.
+                    useResult(firstPass);
+                } else {
+                    finishFailed(message);
+                }
             }
         });
+    }
+
+    private void passCompleted(File output) {
+        if (state != State.RUNNING) {
+            return;
+        }
+        if (firstPass == null) {
+            Job corrected = JobPlanner.correctedForSize(job, output.length());
+            if (corrected != null) {
+                // The encoder overshot the estimate; try once more at a lower bitrate.
+                Log.i(TAG, "Result " + output.length() + " B is far above the estimate of "
+                        + job.estimatedBytes() + " B; second pass at " + corrected.video().bitrate() + " bit/s");
+                firstPass = output;
+                correcting = true;
+                percent = 0;
+                remainingSeconds = -1;
+                startedNanos = System.nanoTime();
+                workFile = new File(output.getParentFile(), "pass2-" + output.getName());
+                //noinspection ResultOfMethodCallIgnored
+                workFile.delete();
+                fire();
+                runPass(corrected, workFile);
+                return;
+            }
+            useResult(output);
+            return;
+        }
+        // Keep whichever of the two results is smaller.
+        File keep = output.length() < firstPass.length() ? output : firstPass;
+        File drop = keep == output ? firstPass : output;
+        //noinspection ResultOfMethodCallIgnored
+        drop.delete();
+        useResult(keep);
+    }
+
+    private void useResult(File output) {
+        firstPass = null;
+        correcting = false;
+        save(output, outputName, destination);
     }
 
     private void updateEta() {
@@ -215,13 +282,16 @@ public final class JobController {
         if (runner != null) {
             runner.cancel();
         }
-        if (workFile != null) {
-            File f = workFile;
-            main.postDelayed(() -> {
-                //noinspection ResultOfMethodCallIgnored
-                f.delete();
-            }, 500);
+        for (File f : new File[] {workFile, firstPass}) {
+            if (f != null) {
+                main.postDelayed(() -> {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }, 500);
+            }
         }
+        firstPass = null;
+        correcting = false;
         state = State.IDLE;
         ProcessingService.stop(app);
         fire();

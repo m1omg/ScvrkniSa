@@ -521,6 +521,43 @@ public final class JobPlanner {
         return new Plan(withEstimate(b), warnings, true, 0);
     }
 
+    /** How far above its estimate a compressed file may land before a corrected pass is made. */
+    public static final double SIZE_CORRECTION_THRESHOLD = 1.15;
+
+    /**
+     * Some encoders (several phone chips and the Android emulator among them) do not
+     * keep to the requested bitrate, especially on short or grainy clips. When a
+     * compressed file came out more than 15 % bigger than the estimate the person
+     * saw, this returns the same job with a video bitrate lowered in proportion, for
+     * one more try. Returns {@code null} when the result is fine or cannot be helped
+     * this way.
+     */
+    public static Job correctedForSize(Job job, long actualBytes) {
+        long estimate = job.estimatedBytes();
+        if (job.kind() != JobKind.COMPRESS || !job.video().isEncode() || estimate <= 0
+                || job.video().rateControl() == RateControl.CONSTANT_QUALITY || job.video().bitrate() <= 0) {
+            return null;
+        }
+        if (actualBytes <= estimate * SIZE_CORRECTION_THRESHOLD || actualBytes - estimate < 64 * 1024) {
+            return null;
+        }
+        double seconds = job.outputDuration();
+        if (seconds <= 0) {
+            return null;
+        }
+        double audioBytes = SizeEstimator.audioBitrate(job) * seconds / 8;
+        double wantedVideo = estimate - audioBytes;
+        double actualVideo = actualBytes - audioBytes;
+        if (wantedVideo <= 0 || actualVideo <= wantedVideo) {
+            return null;
+        }
+        // Aim a little lower than the plain ratio: an encoder that overshot once
+        // tends to overshoot again. Never cut the bitrate by more than three quarters.
+        double factor = Math.max(0.25, Math.min(0.9, wantedVideo / actualVideo * 0.95));
+        long bitrate = Math.max(MIN_VIDEO_BITRATE, Math.round(job.video().bitrate() * factor));
+        return job.toBuilder().video(job.video().withBitrate(bitrate)).build();
+    }
+
     /**
      * A short excerpt of {@code job} with exactly the same settings, used for the
      * 5-second quality preview.
